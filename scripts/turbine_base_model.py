@@ -361,7 +361,7 @@ calculations, **default** - 'isentropic'.
             self.flowsheet().time, doc="Calculate work of isentropic process"
         )
         def isentropic_energy_balance(self, t):
-            return self.work_isentropic[t] == ( self.work_isentropic_mol ) * self.control_volume.properties_in[t].flow_mol
+            return self.work_isentropic[t] == ( self.work_isentropic_mol[t] ) * self.control_volume.properties_in[t].flow_mol
         
 
 
