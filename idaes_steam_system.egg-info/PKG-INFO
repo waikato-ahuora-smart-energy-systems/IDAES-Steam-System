@@ -1,0 +1,15 @@
+Metadata-Version: 2.4
+Name: idaes-steam-system
+Version: 0.1
+Requires-Dist: numpy
+Requires-Dist: pandas
+Requires-Dist: gekko>=1.2.1
+Requires-Dist: openpyxl
+Requires-Dist: matplotlib
+Requires-Dist: Pyomo
+Requires-Dist: seaborn
+Requires-Dist: plotly
+Requires-Dist: kaleido==0.1.0post1
+Requires-Dist: nbformat>=4.2.0
+Requires-Dist: idaes-pse[coolprop,omlt,ui]
+Dynamic: requires-dist

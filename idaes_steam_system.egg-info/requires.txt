@@ -1,0 +1,11 @@
+numpy
+pandas
+gekko>=1.2.1
+openpyxl
+matplotlib
+Pyomo
+seaborn
+plotly
+kaleido==0.1.0post1
+nbformat>=4.2.0
+idaes-pse[coolprop,omlt,ui]
