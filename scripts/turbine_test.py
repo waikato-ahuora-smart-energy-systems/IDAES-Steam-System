@@ -45,13 +45,15 @@ def build_model(m):
     
 
 def set_inputs(m):
-    m.fs1.turbine.inlet.flow_mass.fix(9.9/3.6) # why not [0] on mass
+    m.fs1.turbine.inlet.flow_mass.fix(2/3.6) # why not [0] on mass
     m.fs1.turbine.inlet.enth_mass[0].fix(value(m.fs1.water.htpx(T=(400+273)*units.K, p=45*units.bar)))
     m.fs1.turbine.inlet.pressure[0].fix(45*units.bar) # why the [0]
     m.fs1.turbine.outlet.pressure[0].fix(12.5*units.bar)
     #m.fs1.turbine.efficiency_isentropic.fix(0.75)
     m.fs1.turbine.willans_slope.fix(3.24*1000*units.J/units.mol)  # Willans slope 
-    m.fs1.turbine.willans_intercept.fix(500*1000*units.W)  # Willans intercept 
+    m.fs1.turbine.willans_intercept.fix(500*1000*units.W)  # Willans intercept
+    m.fs1.turbine.willans_max_mol.fix(100*15.4*units.mol / units.s)  # Willans intercept
+
 
 
 m = ConcreteModel()

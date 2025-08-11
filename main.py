@@ -19,3 +19,9 @@ if __name__ == "__main__":
     series_tubine(m, params)
     end_time = time.time()
     print(f"Execution time: {end_time - start_time} seconds")
+
+    #chapter 2 remove ML, copy paste and submit to energies
+    #chapter 3 update when feedback comes back
+    #chapter 4 submit as is but check with Oji about sensitive parts, need lit review in intro. Organise meeting with them to discuss
+    #chapter 5&6 together by cutting some parts 
+  

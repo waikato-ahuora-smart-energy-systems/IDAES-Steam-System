@@ -159,13 +159,7 @@ def series_tubine(m, params):
 
 
 ''' 
-#QA porosity process at axiam 4
-#testing cage - chain length fence? 2 how can we set up quick
-#aurel from Rio Tinto props incl 1
-#glue options & testing for foam-flange 3
-how to use 2" elf sensors
 
-all done some work within 1-2 weeks 
 '''
 
 

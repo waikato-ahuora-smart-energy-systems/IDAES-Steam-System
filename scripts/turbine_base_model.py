@@ -21,6 +21,9 @@ Standard IDAES pressure changer model.
 
 # TODO: Keegan
 # Add different mech work calculation modes in turbine_willins.py, also need to figure out how 
+# test on series_turbine.py 
+# test different units for willans params
+# bring in other willans models
 
 # Import Python libraries
 from enum import Enum
@@ -279,6 +282,14 @@ calculations, **default** - 'isentropic'.
                 units=units_meta.get_derived_units("power"),
             )
 
+            self.willans_max_mol = Var(
+                self.flowsheet().time,
+                initialize=1.0,
+                doc="Max molar flow of willans line",
+                units=units_meta.get_derived_units("amount") / units_meta.get_derived_units("time"),
+            )
+
+            
         # Build isentropic state block
         tmp_dict = dict(**self.config.property_package_args)
         tmp_dict["has_phase_equilibrium"] = self.config.has_phase_equilibrium
@@ -324,25 +335,15 @@ calculations, **default** - 'isentropic'.
                     self.work_isentropic[t] * self.efficiency_isentropic[t]
                 )
             elif self.config.calculation_method == 'simple_willans':
-                eps = 1e-3  # smoothing parameter; smaller = closer to exact max, larger = smoother
+                eps = 1e-4  # smoothing parameter; smaller = closer to exact max, larger = smoother
                 
                 return self.work_mechanical[t] == smooth_min(
-                    -(self.willans_slope[t] * self.control_volume.properties_in[t].flow_mol
-                    - self.willans_intercept[t]),
+                    -(self.willans_slope[t] * self.control_volume.properties_in[t].flow_mol - self.willans_intercept[t]) / (self.willans_slope[t] * self.willans_max_mol[t] - self.willans_intercept[t]),
                     0.0 * pyunits.W,
                     eps
-                    )
-                ''' 
-                return self.work_mechanical[t] == (
-                    -(self.willans_slope[t] * self.control_volume.properties_in[t].flow_mol
-                    - self.willans_intercept[t])
-                )
-                '''
+                    ) * (self.willans_slope[t] * self.willans_max_mol[t] - self.willans_intercept[t])
+             
                 
-                
-
-        
-
         self.add_mechanical_work_definition()
 
         # Property packages should define
