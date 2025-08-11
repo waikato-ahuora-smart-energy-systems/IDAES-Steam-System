@@ -312,6 +312,20 @@ calculations, **default** - 'isentropic'.
                 self.properties_isentropic[t].entr_mol
                 == self.control_volume.properties_in[t].entr_mol
             )
+        
+        @self.Expression(
+                self.flowsheet().time,
+                doc="calculate ideal amount of work per mole of fluid"
+        )
+        def work_isentropic_mol(self, t):
+            return self.properties_isentropic[t].enth_mol - self.control_volume.properties_in[t].enth_mol
+        
+        @self.Expression(
+                self.flowsheet().time,
+                doc="calculate actual amount of work per mole of fluid"
+        )
+        def work_mechanical_mol(self, t):
+            return self.properties_isentropic[t].enth_mol - self.control_volume.properties_in[t].enth_mol
 
         # Actual work
         @self.Constraint(
@@ -320,8 +334,8 @@ calculations, **default** - 'isentropic'.
         def actual_work(self, t):
             # if config.calc method == isentropic:
             if self.config.calculation_method == "isentropic":
-                return self.work_mechanical[t] == (
-                    self.work_isentropic[t] * self.efficiency_isentropic[t]
+                return self.work_mechanical_mol[t] == (
+                    self.work_isentropic_mol[t] * self.efficiency_isentropic[t]
                 )
             elif self.config.calculation_method == 'simple_willans':
                 eps = 1e-3  # smoothing parameter; smaller = closer to exact max, larger = smoother
@@ -339,28 +353,15 @@ calculations, **default** - 'isentropic'.
                 )
                 '''
                 
-                
-
         
-
-        self.add_mechanical_work_definition()
-
-        # Property packages should define
-        # properties_in.enth_mol
-        # properties_in.entr_mol
-        # properties_out.flow_mol
-        # .pressure
-        # .temperature
-        # 
-    
-    def add_mechanical_work_definition(self):
+        
 
         # Isentropic work
         @self.Constraint(
             self.flowsheet().time, doc="Calculate work of isentropic process"
         )
         def isentropic_energy_balance(self, t):
-            return self.work_isentropic[t] == ( self.properties_isentropic[t].enth_mol - self.control_volume.properties_in[t].enth_mol ) * self.control_volume.properties_in[t].flow_mol
+            return self.work_isentropic[t] == ( self.work_isentropic_mol[t] ) * self.control_volume.properties_in[t].flow_mol
         
 
 
