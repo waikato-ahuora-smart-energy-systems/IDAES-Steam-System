@@ -42,13 +42,13 @@ def build_model(m):
                     )
     
     #m.fs1.turbine = Turbine(property_package=m.fs1.water)
-    calculation_method = "part_load_willans" # "isentropic"  # or "simple willans"
+    calculation_method = "part_load_willans" #"part_load_willans" # "isentropic"  # or "simple willans" "Tsat_willans"
     m.fs1.turbine = TurbineBase(property_package=m.fs1.water, calculation_method=calculation_method)
     
     
 
 def set_inputs(m):
-    m_in = 189.6 # t/h
+    m_in = 187.0 # t/h
     P_in = 41.3 # bar g
     P_out = 10.4 # bar g
     T_in = 381 # C
@@ -67,11 +67,19 @@ def set_inputs(m):
         m.fs1.turbine.willans_max_mol.fix(100*15.4*units.mol / units.s)  # Willans intercept
     
     elif m.fs1.turbine.config.calculation_method == "part_load_willans":
-        m.fs1.turbine.efficiency_motor.fix(1.0) # TODO doesnt do anything yet but is a DoF 
+        m.fs1.turbine.efficiency_motor.fix(1.0)  
         m.fs1.turbine.willans_max_mol.fix(217.4*15.4)  # Willans intercept
         m.fs1.turbine.willans_a.fix(1.5435)  # Willans slope 
         m.fs1.turbine.willans_b.fix(0.2*units.kW)  # Willans intercept
         m.fs1.turbine.willans_c.fix(0.3759)  # Willans intercept
+    
+    elif m.fs1.turbine.config.calculation_method == "Tsat_willans":
+        m.fs1.turbine.efficiency_motor.fix(1.0) 
+        m.fs1.turbine.willans_max_mol.fix(217.4*15.4)  # Willans intercept
+        # m.fs1.turbine.willans_a.fix(1.5435)  # Willans slope 
+        # m.fs1.turbine.willans_b.fix(0.2*units.kW)  # Willans intercept
+        # m.fs1.turbine.willans_c.fix(0.3759)  # Willans intercept
+       
        
 
 
@@ -87,16 +95,23 @@ result = solver.solve(m, tee=False)
 
 
 
-dt = DiagnosticsToolbox(m)
-dt.report_structural_issues()
-dt.display_underconstrained_set()
-dt.display_overconstrained_set()
+# dt = DiagnosticsToolbox(m)
+# dt.report_structural_issues()
+# dt.display_underconstrained_set()
+# dt.display_overconstrained_set()
+# dt.display_components_with_inconsistent_units()
 
-m.fs1.turbine.outlet.pressure.display()
+from pyomo.util.check_units import assert_units_consistent
+assert_units_consistent(m.fs1)
+
 m.fs1.turbine.report()
-m.fs1.turbine.efficiency_isentropic.display()
-m.fs1.turbine.n_isen.display()
-m.fs1.turbine.work_isentropic.display()
+m.fs1.turbine.control_volume.properties_in[0].temperature_sat.display()
+m.fs1.turbine.control_volume.properties_out[0].temperature_sat.display()
+print(m.fs1.turbine.willans_a[0].value)
+print(m.fs1.turbine.willans_b[0].value)
+print(m.fs1.turbine.willans_c[0].value)
+print(m.fs1.turbine.willans_slope[0].value)
+print(m.fs1.turbine.willans_intercept[0].value)
 
 '''
 m.fs1.turbine.willans_slope.display()

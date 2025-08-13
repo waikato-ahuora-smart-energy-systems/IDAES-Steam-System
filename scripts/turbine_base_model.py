@@ -176,7 +176,10 @@ see property package for documentation.}""",
 calculations, **default** - 'isentropic'.
 **Valid values:** {
 **isentropic** - default method, uses isentropic efficiency to determine work
-**simple_willans** - simple willans line requring slope and intercept.}""",
+**simple_willans** - simple willans line requring slope, intercept and max molar flow.
+**part_load_willans** - willans line with part load correction, a, b, c and max molar flow as parameters
+**Tsat_willans** - willans line with part load correction using saturation temperature. Requires only max molar flow
+}""",
         ),
     )
 
@@ -308,19 +311,18 @@ calculations, **default** - 'isentropic'.
                 units=units_meta.get_derived_units("amount") / units_meta.get_derived_units("time"),
             )
 
-            if self.config.calculation_method == "part_load_willans":
+            if self.config.calculation_method == "part_load_willans" or self.config.calculation_method == "Tsat_willans":
                 self.willans_a = Var(
                     self.flowsheet().time,
                     initialize=1.0,
                     doc="Willans a coefficient",
-                    #units=units_meta.get_derived_units("energy") / units_meta.get_derived_units("amount"),
                 )
 
                 self.willans_b = Var(
                     self.flowsheet().time,
                     initialize=1.0,
                     doc="Willans a coefficient",
-                    units=units_meta.get_derived_units("energy") / units_meta.get_derived_units("time")
+                    units=units_meta.get_derived_units("power")
                 )
 
                 self.willans_c = Var(
@@ -365,36 +367,41 @@ calculations, **default** - 'isentropic'.
             )
     
         self.add_isentropic_work_definition()
-        if 'willans' in self.config.calculation_method:
-            self.calculate_willans_parameters()
+        if 'willans' in self.config.calculation_method: 
+            self.calculate_isentropic_efficiency()
+            if "Tsat_willans" in self.config.calculation_method: # use published values and dTsat to calculate willans a,b,c
+                self.calculate_Tsat_willans_parameters()
+
+            # calculate slope and intercept
+            self.calculate_willans_coefficients()
         self.add_mechanical_work_definition()
         self.add_electrical_work_definition()
-        if 'willans' in self.config.calculation_method:
-            self.calculate_isentropic_efficiency()
-        
-    def calculate_isentropic_efficiency(self):
+       
+            
+    def calculate_Tsat_willans_parameters(self):
+        # a parameter
         @self.Constraint(
-                self.flowsheet().time, doc="Isentropic effiicency calculation"
+                self.flowsheet().time, doc="Willans Tsat a calculation"
         )
-        def isentropic_efficiency(self, t):
-            return self.efficiency_isentropic[t] ==  self.work_mechanical[t] / (self.work_isentropic[t] - 1e-6 * pyunits.W)
-        #self.n_isen = Expression(self.flowsheet().time, rule=isentropic_efficiency, doc="Isentropic efficiency calculation")
+        def willans_Tsat_a_calculation(self, t):
+            return self.willans_a[t] == 0 + 4.23 * (self.control_volume.properties_in[t].temperature_sat - self.control_volume.properties_out[t].temperature_sat) / pyunits.K
+        
+        # b parameter
+        @self.Constraint(
+                self.flowsheet().time, doc="Willans Tsat b calculation"
+        )
+        def willans_Tsat_b_calculation(self, t):
+            return self.willans_b[t] == (1.155 * pyunits.W + 0.000538 * (self.control_volume.properties_in[t].temperature_sat - self.control_volume.properties_out[t].temperature_sat) * pyunits.W / pyunits.K)
 
-    ''' 
-    # this is working expression
-    def calculate_isentropic_efficiency(self):
-        # @self.Constraint(
-        #         self.flowsheet().time, doc="Isentropic effiicency calculation"
-        # )
-        def isentropic_efficiency(self, t):
-            print(value(self.work_mechanical[t]), value(self.work_isentropic[t]))
-            return   self.work_mechanical[t] / (self.work_isentropic[t] - 1e-6 * pyunits.W)
-        self.n_isen = Expression(self.flowsheet().time, rule=isentropic_efficiency, doc="Isentropic efficiency calculation")
-    '''
+        @self.Constraint(
+                self.flowsheet().time, doc="Willans Tsat b calculation"
+        )
+        def willans_Tsat_c_calculation(self, t):
+            return self.willans_c[t] == 1/0.83333 - 1
 
-    def calculate_willans_parameters(self):
-        # Calculate willans coefficients if applicable
-        if self.config.calculation_method == 'part_load_willans': 
+
+    def calculate_willans_coefficients(self):
+        # Calculate willans coefficients
             @self.Constraint(
                 self.flowsheet().time, doc="Willans slope calculation"
             )
@@ -407,10 +414,11 @@ calculations, **default** - 'isentropic'.
             def willans_intercept_calculation(self, t):
                 return self.willans_intercept[t] == self.willans_c[t] / self.willans_a[t] * (self.willans_max_mol[t] * (self.control_volume.properties_in[t].enth_mol - self.properties_isentropic[t].enth_mol) - self.willans_b[t])
 
+    
+        
 
 
     def add_mechanical_work_definition(self):
-        
         # Mechanical work
         @self.Constraint(
             self.flowsheet().time, doc="Actual mechanical work calculation"
@@ -454,6 +462,12 @@ calculations, **default** - 'isentropic'.
             return self.work_isentropic[t] == ( self.work_isentropic_mol[t] ) * self.control_volume.properties_in[t].flow_mol
         '''
 
+    def calculate_isentropic_efficiency(self):
+        @self.Constraint(
+                self.flowsheet().time, doc="Isentropic effiicency calculation"
+        )
+        def isentropic_efficiency(self, t):
+            return self.efficiency_isentropic[t] ==  self.work_mechanical[t] / (self.work_isentropic[t] - 1e-6 * pyunits.W)
 
     def initialize_build(
         blk,
