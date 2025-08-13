@@ -378,20 +378,7 @@ calculations, **default** - 'isentropic'.
         )
         def isentropic_efficiency(self, t):
             return self.efficiency_isentropic[t] ==  self.work_mechanical[t] / (self.work_isentropic[t] - 1e-6 * pyunits.W)
-        #self.n_isen = Expression(self.flowsheet().time, rule=isentropic_efficiency, doc="Isentropic efficiency calculation")
-
-    ''' 
-    # this is working expression
-    def calculate_isentropic_efficiency(self):
-        # @self.Constraint(
-        #         self.flowsheet().time, doc="Isentropic effiicency calculation"
-        # )
-        def isentropic_efficiency(self, t):
-            print(value(self.work_mechanical[t]), value(self.work_isentropic[t]))
-            return   self.work_mechanical[t] / (self.work_isentropic[t] - 1e-6 * pyunits.W)
-        self.n_isen = Expression(self.flowsheet().time, rule=isentropic_efficiency, doc="Isentropic efficiency calculation")
-    '''
-
+       
     def calculate_willans_parameters(self):
         # Calculate willans coefficients if applicable
         if self.config.calculation_method == 'part_load_willans': 
@@ -406,7 +393,6 @@ calculations, **default** - 'isentropic'.
             )
             def willans_intercept_calculation(self, t):
                 return self.willans_intercept[t] == self.willans_c[t] / self.willans_a[t] * (self.willans_max_mol[t] * (self.control_volume.properties_in[t].enth_mol - self.properties_isentropic[t].enth_mol) - self.willans_b[t])
-
 
 
     def add_mechanical_work_definition(self):
@@ -425,7 +411,7 @@ calculations, **default** - 'isentropic'.
                 
                 return self.work_mechanical[t] == smooth_min(
                     -(self.willans_slope[t] * self.control_volume.properties_in[t].flow_mol - self.willans_intercept[t]) / (self.willans_slope[t] * self.willans_max_mol[t] - self.willans_intercept[t]),
-                    0.0 * pyunits.W,
+                    0.0,
                     eps
                     ) * (self.willans_slope[t] * self.willans_max_mol[t] - self.willans_intercept[t])
 

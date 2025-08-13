@@ -87,16 +87,14 @@ result = solver.solve(m, tee=False)
 
 
 
-dt = DiagnosticsToolbox(m)
-dt.report_structural_issues()
-dt.display_underconstrained_set()
-dt.display_overconstrained_set()
+# dt = DiagnosticsToolbox(m)
+# dt.report_structural_issues()
+# dt.display_underconstrained_set()
+# dt.display_overconstrained_set()
 
 m.fs1.turbine.outlet.pressure.display()
 m.fs1.turbine.report()
-m.fs1.turbine.efficiency_isentropic.display()
-m.fs1.turbine.n_isen.display()
-m.fs1.turbine.work_isentropic.display()
+assert result.solver.termination_condition == TerminationCondition.optimal
 
 '''
 m.fs1.turbine.willans_slope.display()
