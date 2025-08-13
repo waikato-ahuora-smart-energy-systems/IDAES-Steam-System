@@ -282,6 +282,7 @@ calculations, **default** - 'isentropic'.
             self.flowsheet().time,
             initialize=1.0,
             doc="Electrical work of a turbine [-]",
+            units=units_meta.get_derived_units("power")
             )
 
         # Add willans line parameters
@@ -576,6 +577,8 @@ calculations, **default** - 'isentropic'.
         var_dict = {}
         if hasattr(self, "deltaP"):
             var_dict["Mechanical Work"] = self.work_mechanical[time_point]
+        if hasattr(self, "deltaP"):
+            var_dict["Electrical Work"] = self.work_electrical[time_point]
         if hasattr(self, "deltaP"):
             var_dict["Pressure Change"] = self.deltaP[time_point]
         if hasattr(self, "ratioP"):
