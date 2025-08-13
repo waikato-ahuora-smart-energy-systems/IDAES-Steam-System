@@ -67,7 +67,7 @@ def set_inputs(m):
         m.fs1.turbine.willans_max_mol.fix(100*15.4*units.mol / units.s)  # Willans intercept
     
     elif m.fs1.turbine.config.calculation_method == "part_load_willans":
-        m.fs1.turbine.efficiency_motor.fix(1.0)  
+        m.fs1.turbine.efficiency_motor.fix(1.0) # TODO doesnt do anything yet but is a DoF 
         m.fs1.turbine.willans_max_mol.fix(217.4*15.4)  # Willans intercept
         m.fs1.turbine.willans_a.fix(1.5435)  # Willans slope 
         m.fs1.turbine.willans_b.fix(0.2*units.kW)  # Willans intercept

@@ -431,9 +431,10 @@ calculations, **default** - 'isentropic'.
             else: # willans line formulation 
                 eps = 0.01  # smoothing parameter; smaller = closer to exact max, larger = smoother
                 
+    
                 return self.work_mechanical[t] == smooth_min(
                     -(self.willans_slope[t] * self.control_volume.properties_in[t].flow_mol - self.willans_intercept[t]) / (self.willans_slope[t] * self.willans_max_mol[t] - self.willans_intercept[t]),
-                    0.0 * pyunits.W,
+                    0.0,
                     eps
                     ) * (self.willans_slope[t] * self.willans_max_mol[t] - self.willans_intercept[t])
 
