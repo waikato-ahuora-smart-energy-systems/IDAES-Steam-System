@@ -38,6 +38,7 @@ from pyomo.environ import (
     Reference,
     check_optimal_termination,
     Reals,
+    Param,
 )
 from pyomo.common.config import ConfigBlock, ConfigValue, In, Bool
 
@@ -235,6 +236,9 @@ calculations, **default** - 'isentropic'.
             self.volume = Reference(self.control_volume.volume[:])
 
         self.work_mechanical = Reference(self.control_volume.work[:])
+        self.work_mechanical.fix(-1000e3)
+        self.work_mechanical.unfix()
+
 
         # Add Momentum balance variable 'deltaP'
         self.deltaP = Reference(self.control_volume.deltaP[:])
@@ -256,18 +260,32 @@ calculations, **default** - 'isentropic'.
         # Add isentropic variables
         self.efficiency_isentropic = Var(
             self.flowsheet().time,
-            initialize=0.8,
+            initialize=0.5,
             doc="Efficiency with respect to an isentropic process [-]",
         )
+
         self.work_isentropic = Var(
             self.flowsheet().time,
-            initialize=0.0,
+            initialize=-100e3,
             doc="Work input to unit if isentropic process",
             units=units_meta.get_derived_units("power"),
         )
 
+        # Add motor/electrical work and efficiency variable
+        self.efficiency_motor = Var(
+            self.flowsheet().time,
+            initialize=1.0,
+            doc="Motor efficiency converting shaft work to electrical work [-]",
+            )
+        
+        self.work_electrical = Var(
+            self.flowsheet().time,
+            initialize=1.0,
+            doc="Electrical work of a turbine [-]",
+            )
+
         # Add willans line parameters
-        if self.config.calculation_method == "simple_willans":
+        if 'willans' in self.config.calculation_method:
             self.willans_slope = Var(
                 self.flowsheet().time,
                 initialize=1.0,
@@ -288,6 +306,27 @@ calculations, **default** - 'isentropic'.
                 doc="Max molar flow of willans line",
                 units=units_meta.get_derived_units("amount") / units_meta.get_derived_units("time"),
             )
+
+            if self.config.calculation_method == "part_load_willans":
+                self.willans_a = Var(
+                    self.flowsheet().time,
+                    initialize=1.0,
+                    doc="Willans a coefficient",
+                    #units=units_meta.get_derived_units("energy") / units_meta.get_derived_units("amount"),
+                )
+
+                self.willans_b = Var(
+                    self.flowsheet().time,
+                    initialize=1.0,
+                    doc="Willans a coefficient",
+                    units=units_meta.get_derived_units("energy") / units_meta.get_derived_units("time")
+                )
+
+                self.willans_c = Var(
+                    self.flowsheet().time,
+                    initialize=1.0,
+                    doc="Willans a coefficient",
+                )
 
             
         # Build isentropic state block
@@ -323,60 +362,96 @@ calculations, **default** - 'isentropic'.
                 self.properties_isentropic[t].entr_mol
                 == self.control_volume.properties_in[t].entr_mol
             )
+    
+        self.add_isentropic_work_definition()
+        if 'willans' in self.config.calculation_method:
+            self.calculate_willans_parameters()
+        self.add_mechanical_work_definition()
+        self.add_electrical_work_definition()
+        if 'willans' in self.config.calculation_method:
+            self.calculate_isentropic_efficiency()
         
-        @self.Expression(
-                self.flowsheet().time,
-                doc="calculate ideal amount of work per mole of fluid"
+    def calculate_isentropic_efficiency(self):
+        @self.Constraint(
+                self.flowsheet().time, doc="Isentropic effiicency calculation"
         )
-        def work_isentropic_mol(self, t):
-            return self.properties_isentropic[t].enth_mol - self.control_volume.properties_in[t].enth_mol
-        
-        @self.Expression(
-                self.flowsheet().time,
-                doc="calculate actual amount of work per mole of fluid"
-        )
-        def work_mechanical_mol(self, t):
-            return self.properties_isentropic[t].enth_mol - self.control_volume.properties_in[t].enth_mol
+        def isentropic_efficiency(self, t):
+            return self.efficiency_isentropic[t] ==  self.work_mechanical[t] / (self.work_isentropic[t] - 1e-6 * pyunits.W)
+        #self.n_isen = Expression(self.flowsheet().time, rule=isentropic_efficiency, doc="Isentropic efficiency calculation")
 
-        # Actual work
+    ''' 
+    # this is working expression
+    def calculate_isentropic_efficiency(self):
+        # @self.Constraint(
+        #         self.flowsheet().time, doc="Isentropic effiicency calculation"
+        # )
+        def isentropic_efficiency(self, t):
+            print(value(self.work_mechanical[t]), value(self.work_isentropic[t]))
+            return   self.work_mechanical[t] / (self.work_isentropic[t] - 1e-6 * pyunits.W)
+        self.n_isen = Expression(self.flowsheet().time, rule=isentropic_efficiency, doc="Isentropic efficiency calculation")
+    '''
+
+    def calculate_willans_parameters(self):
+        # Calculate willans coefficients if applicable
+        if self.config.calculation_method == 'part_load_willans': 
+            @self.Constraint(
+                self.flowsheet().time, doc="Willans slope calculation"
+            )
+            def willans_slope_calculation(self, t):
+                return self.willans_slope[t] == (1 + self.willans_c[t]) / self.willans_a[t] * ((self.control_volume.properties_in[t].enth_mol - self.properties_isentropic[t].enth_mol) - self.willans_b[t] / self.willans_max_mol[t])
+            
+            @self.Constraint(
+                self.flowsheet().time, doc="Willans intercept calculation"
+            )
+            def willans_intercept_calculation(self, t):
+                return self.willans_intercept[t] == self.willans_c[t] / self.willans_a[t] * (self.willans_max_mol[t] * (self.control_volume.properties_in[t].enth_mol - self.properties_isentropic[t].enth_mol) - self.willans_b[t])
+
+
+
+    def add_mechanical_work_definition(self):
+        
+        # Mechanical work
         @self.Constraint(
             self.flowsheet().time, doc="Actual mechanical work calculation"
         )
         def actual_work(self, t):
-            # if config.calc method == isentropic:
             if self.config.calculation_method == "isentropic":
-                return self.work_mechanical_mol[t] == (
-                    self.work_isentropic_mol[t] * self.efficiency_isentropic[t]
+                return self.work_mechanical[t] == (
+                    self.work_isentropic[t] * self.efficiency_isentropic[t]
                 )
-            elif self.config.calculation_method == 'simple_willans':
-                eps = 1e-4  # smoothing parameter; smaller = closer to exact max, larger = smoother
+            else: # willans line formulation 
+                eps = 0.01  # smoothing parameter; smaller = closer to exact max, larger = smoother
                 
                 return self.work_mechanical[t] == smooth_min(
                     -(self.willans_slope[t] * self.control_volume.properties_in[t].flow_mol - self.willans_intercept[t]) / (self.willans_slope[t] * self.willans_max_mol[t] - self.willans_intercept[t]),
                     0.0 * pyunits.W,
                     eps
                     ) * (self.willans_slope[t] * self.willans_max_mol[t] - self.willans_intercept[t])
-             
-                
-        self.add_mechanical_work_definition()
 
-        # Property packages should define
-        # properties_in.enth_mol
-        # properties_in.entr_mol
-        # properties_out.flow_mol
-        # .pressure
-        # .temperature
-        # 
+                    
+    def add_electrical_work_definition(self):
+        # Electrical work
+        @self.Constraint(
+            self.flowsheet().time, doc="Calculate electrical work of turbine"
+        )
+        
+        def electrical_energy_balance(self, t):
+            return self.work_electrical[t] == self.work_mechanical[t] * self.efficiency_motor[t]
+        
     
-    def add_mechanical_work_definition(self):
+    def add_isentropic_work_definition(self):
 
         # Isentropic work
         @self.Constraint(
             self.flowsheet().time, doc="Calculate work of isentropic process"
         )
         def isentropic_energy_balance(self, t):
-            return self.work_isentropic[t] == ( self.work_isentropic_mol[t] ) * self.control_volume.properties_in[t].flow_mol
+            return self.work_isentropic[t] == ( self.properties_isentropic[t].enth_mol - self.control_volume.properties_in[t].enth_mol ) * self.control_volume.properties_in[t].flow_mol
         
+        ''' 
+        def isentropic_energy_balance(self, t):
+            return self.work_isentropic[t] == ( self.work_isentropic_mol[t] ) * self.control_volume.properties_in[t].flow_mol
+        '''
 
 
     def initialize_build(
@@ -505,8 +580,6 @@ calculations, **default** - 'isentropic'.
             var_dict["Pressure Change"] = self.deltaP[time_point]
         if hasattr(self, "ratioP"):
             var_dict["Pressure Ratio"] = self.ratioP[time_point]
-        if hasattr(self, "efficiency_pump"):
-            var_dict["Efficiency"] = self.efficiency_pump[time_point]
         if hasattr(self, "efficiency_isentropic"):
             var_dict["Isentropic Efficiency"] = self.efficiency_isentropic[time_point]
 
