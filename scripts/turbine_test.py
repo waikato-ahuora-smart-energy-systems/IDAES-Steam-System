@@ -42,7 +42,7 @@ def build_model(m):
                     )
     
     #m.fs1.turbine = Turbine(property_package=m.fs1.water)
-    calculation_method = "part_load_willans" #"part_load_willans" # "isentropic"  # or "simple willans" "Tsat_willans"
+    calculation_method = "Tsat_willans" #"part_load_willans" # "isentropic"  # or "simple willans" "Tsat_willans"
     m.fs1.turbine = TurbineBase(property_package=m.fs1.water, calculation_method=calculation_method)
     
     
@@ -68,17 +68,20 @@ def set_inputs(m):
     
     elif m.fs1.turbine.config.calculation_method == "part_load_willans":
         m.fs1.turbine.efficiency_motor.fix(1.0) # TODO doesnt do anything yet but is a DoF 
-        m.fs1.turbine.willans_max_mol.fix(217.4*15.4)  # Willans intercept
+        m.fs1.turbine.willans_max_mol.fix(217.4*15.4)  #
         m.fs1.turbine.willans_a.fix(1.5435)  # Willans slope 
         m.fs1.turbine.willans_b.fix(0.2*units.kW)  # Willans intercept
         m.fs1.turbine.willans_c.fix(0.3759)  # Willans intercept
     
     elif m.fs1.turbine.config.calculation_method == "Tsat_willans":
         m.fs1.turbine.efficiency_motor.fix(1.0) 
-        m.fs1.turbine.willans_max_mol.fix(217.4*15.4)  # Willans intercept
+        m.fs1.turbine.willans_max_mol.fix(217.4*15.4)  
         # m.fs1.turbine.willans_a.fix(1.5435)  # Willans slope 
         # m.fs1.turbine.willans_b.fix(0.2*units.kW)  # Willans intercept
         # m.fs1.turbine.willans_c.fix(0.3759)  # Willans intercept
+    elif m.fs1.turbine.config.calculation_method == "Tsat_willans":
+        m.fs1.turbine.efficiency_motor.fix(1.0) 
+        m.fs1.turbine.willans_max_mol.fix(217.4*15.4) 
        
        
 

@@ -384,15 +384,16 @@ calculations, **default** - 'isentropic'.
                 self.flowsheet().time, doc="Willans Tsat a calculation"
         )
         def willans_Tsat_a_calculation(self, t):
-            return self.willans_a[t] == 0 + 4.23 * (self.control_volume.properties_in[t].temperature_sat - self.control_volume.properties_out[t].temperature_sat) / pyunits.K
-        
+            return self.willans_a[t] == (1.155 + 0.000538 * (self.control_volume.properties_in[t].temperature_sat - self.control_volume.properties_out[t].temperature_sat) / pyunits.K)
+
         # b parameter
         @self.Constraint(
                 self.flowsheet().time, doc="Willans Tsat b calculation"
         )
         def willans_Tsat_b_calculation(self, t):
-            return self.willans_b[t] == (1.155 * pyunits.W + 0.000538 * (self.control_volume.properties_in[t].temperature_sat - self.control_volume.properties_out[t].temperature_sat) * pyunits.W / pyunits.K)
-
+            return self.willans_b[t] == (0 + 4.23 * (self.control_volume.properties_in[t].temperature_sat - self.control_volume.properties_out[t].temperature_sat) / pyunits.K)*1000 * pyunits.W
+        
+        # c parameter
         @self.Constraint(
                 self.flowsheet().time, doc="Willans Tsat b calculation"
         )
