@@ -42,7 +42,7 @@ def build_model(m):
                     )
     
     #m.fs1.turbine = Turbine(property_package=m.fs1.water)
-    calculation_method = "Tsat_willans" #"part_load_willans" # "isentropic"  # or "simple willans" "Tsat_willans"
+    calculation_method = "CT_willans" #"part_load_willans" # "isentropic"  # or "simple willans" "Tsat_willans" " BPST_willans" "CT_willans"
     m.fs1.turbine = TurbineBase(property_package=m.fs1.water, calculation_method=calculation_method)
     
     
@@ -50,7 +50,10 @@ def build_model(m):
 def set_inputs(m):
     m_in = 187.0 # t/h
     P_in = 41.3 # bar g
-    P_out = 10.4 # bar g
+    if m.fs1.turbine.config.calculation_method == "CT_willans": # CT model needs lower pressure
+        P_out = 0.4 # bar g
+    else:
+        P_out = 10.4 # bar g
     T_in = 381 # C
 
     m.fs1.turbine.inlet.flow_mass.fix(m_in/3.6) # why not [0] on mass
@@ -75,13 +78,15 @@ def set_inputs(m):
     
     elif m.fs1.turbine.config.calculation_method == "Tsat_willans":
         m.fs1.turbine.efficiency_motor.fix(1.0) 
-        m.fs1.turbine.willans_max_mol.fix(217.4*15.4)  
-        # m.fs1.turbine.willans_a.fix(1.5435)  # Willans slope 
-        # m.fs1.turbine.willans_b.fix(0.2*units.kW)  # Willans intercept
-        # m.fs1.turbine.willans_c.fix(0.3759)  # Willans intercept
-    elif m.fs1.turbine.config.calculation_method == "Tsat_willans":
+        m.fs1.turbine.willans_max_mol.fix(217.4*15.4) 
+    elif m.fs1.turbine.config.calculation_method == "BPST_willans":
         m.fs1.turbine.efficiency_motor.fix(1.0) 
         m.fs1.turbine.willans_max_mol.fix(217.4*15.4) 
+    elif m.fs1.turbine.config.calculation_method == "CT_willans":
+        m.fs1.turbine.efficiency_motor.fix(1.0) 
+        m.fs1.turbine.willans_max_mol.fix(217.4*15.4) 
+   
+       
        
        
 
@@ -110,11 +115,12 @@ assert_units_consistent(m.fs1)
 m.fs1.turbine.report()
 m.fs1.turbine.control_volume.properties_in[0].temperature_sat.display()
 m.fs1.turbine.control_volume.properties_out[0].temperature_sat.display()
-print(m.fs1.turbine.willans_a[0].value)
-print(m.fs1.turbine.willans_b[0].value)
-print(m.fs1.turbine.willans_c[0].value)
-print(m.fs1.turbine.willans_slope[0].value)
-print(m.fs1.turbine.willans_intercept[0].value)
+print('willans a', m.fs1.turbine.willans_a[0].value)
+print('willans b', m.fs1.turbine.willans_b[0].value)
+print('willans c', m.fs1.turbine.willans_c[0].value)
+print('slope', m.fs1.turbine.willans_slope[0].value)
+print('intercept', m.fs1.turbine.willans_intercept[0].value)
+
 
 '''
 m.fs1.turbine.willans_slope.display()

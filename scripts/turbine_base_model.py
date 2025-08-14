@@ -179,6 +179,8 @@ calculations, **default** - 'isentropic'.
 **simple_willans** - simple willans line requring slope, intercept and max molar flow.
 **part_load_willans** - willans line with part load correction, a, b, c and max molar flow as parameters
 **Tsat_willans** - willans line with part load correction using saturation temperature. Requires only max molar flow
+**BPST_willans** - back pressure willans line with part load correction using pressure difference, requires max molar flow.
+**CT_willans** - condensing turbine willans line with part load correction using pressure difference, requires max molar flow.
 }""",
         ),
     )
@@ -311,7 +313,7 @@ calculations, **default** - 'isentropic'.
                 units=units_meta.get_derived_units("amount") / units_meta.get_derived_units("time"),
             )
 
-            if self.config.calculation_method == "part_load_willans" or self.config.calculation_method == "Tsat_willans":
+            if self.config.calculation_method in ["part_load_willans", "Tsat_willans", "BPST_willans", "CT_willans"]:
                 self.willans_a = Var(
                     self.flowsheet().time,
                     initialize=1.0,
@@ -331,7 +333,6 @@ calculations, **default** - 'isentropic'.
                     doc="Willans a coefficient",
                 )
 
-            
         # Build isentropic state block
         tmp_dict = dict(**self.config.property_package_args)
         tmp_dict["has_phase_equilibrium"] = self.config.has_phase_equilibrium
@@ -369,15 +370,66 @@ calculations, **default** - 'isentropic'.
         self.add_isentropic_work_definition()
         if 'willans' in self.config.calculation_method: 
             self.calculate_isentropic_efficiency()
-            if "Tsat_willans" in self.config.calculation_method: # use published values and dTsat to calculate willans a,b,c
+            if self.config.calculation_method == "Tsat_willans": # use published values and dTsat to calculate willans a,b,c
                 self.calculate_Tsat_willans_parameters()
+
+            elif self.config.calculation_method == "BPST_willans":
+                self.calculate_BPST_willans_parameters()
+            
+            elif self.config.calculation_method == "CT_willans":
+                self.calculate_CT_willans_parameters()
 
             # calculate slope and intercept
             self.calculate_willans_coefficients()
         self.add_mechanical_work_definition()
         self.add_electrical_work_definition()
        
-            
+    def calculate_CT_willans_parameters(self):
+        # a parameter
+        @self.Constraint(
+                self.flowsheet().time, doc="Willans CT a calculation"
+        )
+        def willans_CT_a_calculation(self, t):
+            return self.willans_a[t] == 1.314991261 - 0.001634725 * (self.control_volume.properties_in[t].pressure / 1e5) / pyunits.Pa - 0.367975103 * (self.control_volume.properties_out[t].pressure / 1e5) / pyunits.Pa
+        
+        # b parameter
+        @self.Constraint(
+                self.flowsheet().time, doc="Willans CT b calculation"
+        )
+        def willans_CT_b_calculation(self, t):
+            return self.willans_b[t] == (-437.7746025 + 29.00736723 * (self.control_volume.properties_in[t].pressure / 1e5) / pyunits.Pa + 10.35902331 * (self.control_volume.properties_out[t].pressure / 1e5) / pyunits.Pa) * 1000 * pyunits.W
+        
+        # c parameter
+        @self.Constraint(
+                self.flowsheet().time, doc="Willans CT c calculation"
+        )
+        def willans_CT_c_calculation(self, t):
+            return self.willans_c[t] == 0.07886297 + 0.000528327 * (self.control_volume.properties_in[t].pressure / 1e5) / pyunits.Pa - 0.703153891 * (self.control_volume.properties_out[t].pressure / 1e5) / pyunits.Pa       
+
+    def calculate_BPST_willans_parameters(self):
+        # a parameter
+        @self.Constraint(
+                self.flowsheet().time, doc="Willans BPST a calculation"
+        )
+        def willans_BPST_a_calculation(self, t):
+            return self.willans_a[t] == 1.18795366 - 0.00029564 * (self.control_volume.properties_in[t].pressure / 1e5) / pyunits.Pa + 0.004647288 * (self.control_volume.properties_out[t].pressure / 1e5) / pyunits.Pa
+        
+
+        # b parameter
+        @self.Constraint(
+                self.flowsheet().time, doc="Willans BPST b calculation"
+        )
+        def willans_BPST_b_calculation(self, t):
+            return self.willans_b[t] == (449.9767142 + 5.670176939 * (self.control_volume.properties_in[t].pressure / 1e5) / pyunits.Pa - 11.5045814 * (self.control_volume.properties_out[t].pressure / 1e5) / pyunits.Pa) * 1000 * pyunits.W
+        
+
+        # c parameter
+        @self.Constraint(
+                self.flowsheet().time, doc="Willans BPST c calculation"
+        )
+        def willans_BPST_c_calculation(self, t):
+            return self.willans_c[t] == 0.205149333 - 0.000695171 * (self.control_volume.properties_in[t].pressure / 1e5) / pyunits.Pa + 0.002844611 * (self.control_volume.properties_out[t].pressure / 1e5) / pyunits.Pa       
+
     def calculate_Tsat_willans_parameters(self):
         # a parameter
         @self.Constraint(
@@ -395,11 +447,10 @@ calculations, **default** - 'isentropic'.
         
         # c parameter
         @self.Constraint(
-                self.flowsheet().time, doc="Willans Tsat b calculation"
+                self.flowsheet().time, doc="Willans Tsat c calculation"
         )
         def willans_Tsat_c_calculation(self, t):
             return self.willans_c[t] == 1/0.83333 - 1
-
 
     def calculate_willans_coefficients(self):
         # Calculate willans coefficients
@@ -416,9 +467,6 @@ calculations, **default** - 'isentropic'.
                 return self.willans_intercept[t] == self.willans_c[t] / self.willans_a[t] * (self.willans_max_mol[t] * (self.control_volume.properties_in[t].enth_mol - self.properties_isentropic[t].enth_mol) - self.willans_b[t])
 
     
-        
-
-
     def add_mechanical_work_definition(self):
         # Mechanical work
         @self.Constraint(
@@ -432,7 +480,6 @@ calculations, **default** - 'isentropic'.
             else: # willans line formulation 
                 eps = 0.01  # smoothing parameter; smaller = closer to exact max, larger = smoother
                 
-    
                 return self.work_mechanical[t] == smooth_min(
                     -(self.willans_slope[t] * self.control_volume.properties_in[t].flow_mol - self.willans_intercept[t]) / (self.willans_slope[t] * self.willans_max_mol[t] - self.willans_intercept[t]),
                     0.0,
