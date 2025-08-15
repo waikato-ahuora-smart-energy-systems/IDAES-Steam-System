@@ -498,7 +498,7 @@ provided,
 from 1 to num_outlets).}""",
         ),
     )
-    CONFIG.declare(
+    CONFIG.declare( # imagine I'll be modifying this!
         "split_basis",
         ConfigValue(
             default=SplittingType.totalFlow,

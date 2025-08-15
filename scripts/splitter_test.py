@@ -30,6 +30,7 @@ from idaes.models.unit_models.pressure_changer import ThermodynamicAssumption, T
 from splitter_new_model import Separator_new
 from idaes.core.util import DiagnosticsToolbox
 
+
 def build_model(m):
     # Define model components and blocks
     m.fs1 = FlowsheetBlock(dynamic=False)
@@ -42,11 +43,19 @@ def build_model(m):
     # Define unit ops
     #m.fs1.turbine = Turbine(property_package=m.fs1.water)
     calculation_method = "CT_willans" #"part_load_willans" # "isentropic"  # or "simple_willans" "Tsat_willans" " BPST_willans" "CT_willans"
-    #m.fs1.splitter = Separator_new(property_package=m.fs1.water)
+    m.fs1.splitter = Separator_new(property_package=m.fs1.water, outlet_list=["outlet1", "outlet2"])
     m.fs1.mixer = Mixer(
         property_package=m.fs1.water,
         inlet_list=["supply1", "supply2"],
     )
+
+    m.fs1.stream1 = Arc(
+        source=m.fs1.mixer.outlet,
+        destination=m.fs1.splitter.inlet,
+    )
+
+    # Expand arcs
+    TransformationFactory("network.expand_arcs").apply_to(m)
 
 
     
@@ -69,13 +78,18 @@ def set_inputs(m):
     m.fs1.mixer.supply2.pressure[0].fix((P_supply_2) * units.bar)
 
     # Splitter
+    m.fs1.splitter.split_fraction[0, 'outlet1'].fix(0.5)
 
-    
-    
+def initialise(m):
+    # Initialize the ops
+    m.fs1.mixer.initialize()
+    m.fs1.splitter.initialize()
+   
    
 m = ConcreteModel()
 build_model(m)  # build flowsheet
 set_inputs(m)
+initialise(m)
 
 solver = SolverFactory("ipopt")
 solver.options = {"tol": 1e-3, "max_iter": 5000}
@@ -92,4 +106,5 @@ result = solver.solve(m)
 # assert_units_consistent(m.fs1)
 
 m.fs1.mixer.report()
+m.fs1.splitter.report()
 assert result.solver.termination_condition == TerminationCondition.optimal
