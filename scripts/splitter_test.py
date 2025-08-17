@@ -29,6 +29,7 @@ from idaes.models.properties.general_helmholtz import (
 from idaes.models.unit_models.pressure_changer import ThermodynamicAssumption, Turbine
 from splitter_new_model import Separator_new
 from idaes.core.util import DiagnosticsToolbox
+from idaes.models.unit_models.separator import SplittingType
 
 
 def build_model(m):
@@ -43,7 +44,7 @@ def build_model(m):
     # Define unit ops
     #m.fs1.turbine = Turbine(property_package=m.fs1.water)
     calculation_method = "CT_willans" #"part_load_willans" # "isentropic"  # or "simple_willans" "Tsat_willans" " BPST_willans" "CT_willans"
-    m.fs1.splitter = Separator_new(property_package=m.fs1.water, outlet_list=["outlet1", "outlet2"])
+    m.fs1.splitter = Separator_new(property_package=m.fs1.water, outlet_list=["outlet1", "outlet2"],) #split_basis=SplittingType.totalFlow)
     m.fs1.mixer = Mixer(
         property_package=m.fs1.water,
         inlet_list=["supply1", "supply2"],
@@ -57,6 +58,9 @@ def build_model(m):
     # Expand arcs
     TransformationFactory("network.expand_arcs").apply_to(m)
 
+# TODO:     hand write governing equations for a header
+#           strip Seperator class for everything involving component balances, just want total flow
+#           create new Header class that contains mixing, pressure drop, cooling & splitting based on mass flows for a single pure component 
 
     
 def set_inputs(m):
@@ -78,7 +82,8 @@ def set_inputs(m):
     m.fs1.mixer.supply2.pressure[0].fix((P_supply_2) * units.bar)
 
     # Splitter
-    m.fs1.splitter.split_fraction[0, 'outlet1'].fix(0.5)
+    #m.fs1.splitter.split_fraction[0, 'outlet1'].fix(0.5)
+    m.fs1.splitter.outlet1.flow_mass[0].fix(1.2)  # Convert t/h to kg/s
 
 def initialise(m):
     # Initialize the ops
