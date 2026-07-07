@@ -1,5 +1,5 @@
 from pyomo.environ import ConcreteModel
-from scripts.series_turbine import series_tubine
+from scripts.turbine.series_turbine import series_tubine
 import time
 
 if __name__ == "__main__":
